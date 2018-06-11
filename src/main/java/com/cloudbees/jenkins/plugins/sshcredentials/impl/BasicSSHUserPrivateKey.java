@@ -27,6 +27,11 @@ import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.CredentialsSnapshotTaker;
+import com.cloudbees.plugins.credentials.api.resource.APIExportable;
+import com.cloudbees.plugins.credentials.api.resource.APIResource;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.DescriptorExtensionList;
@@ -54,6 +59,7 @@ import org.apache.commons.lang.StringUtils;
 import org.jenkins.ui.icon.Icon;
 import org.jenkins.ui.icon.IconSet;
 import org.jenkins.ui.icon.IconType;
+import org.jenkinsci.Symbol;
 import org.kohsuke.putty.PuTTYKey;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -267,7 +273,7 @@ public class BasicSSHUserPrivateKey extends BaseSSHUser implements SSHUserPrivat
     /**
      * A source of private keys
      */
-    public static abstract class PrivateKeySource extends AbstractDescribableImpl<PrivateKeySource> {
+    public static abstract class PrivateKeySource extends AbstractDescribableImpl<PrivateKeySource> implements APIExportable {
         /**
          * Gets the private key from the source
          */
@@ -582,4 +588,107 @@ public class BasicSSHUserPrivateKey extends BaseSSHUser implements SSHUserPrivat
                     passphrase == null ? null : passphrase.getEncryptedValue(), credentials.getDescription());
         }
     }
+
+    @Override
+    public APIResource getDataAPI() {
+        return new Resource(this);
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Symbol("sshPrivateKey")
+    public static class Resource extends BaseSSHUser.Resource {
+
+        private String privateKeyFileOnMaster;
+        private String privateKey;
+        private Boolean userHomePrivateKey;
+
+        private APIResource privateKeySource;
+
+        // no getter as it is not going in outputs
+        private String passphrase;
+
+        public Resource() {}
+
+        public Resource(BasicSSHUserPrivateKey model) {
+            super(model);
+            PrivateKeySource privateKeySourceModel = model.getPrivateKeySource();
+            if (privateKeySourceModel instanceof FileOnMasterPrivateKeySource) {
+                privateKeyFileOnMaster = ((FileOnMasterPrivateKeySource) privateKeySourceModel).privateKeyFile;
+            } else if (privateKeySourceModel instanceof DirectEntryPrivateKeySource) {
+                privateKey = "<redacted>";
+            } else if (privateKeySourceModel instanceof UsersPrivateKeySource) {
+                userHomePrivateKey = Boolean.TRUE;
+            } else {
+                // Other unknown private key source, just use whatever its data API exposes
+                privateKeySource = privateKeySourceModel.getDataAPI();
+            }
+            passphrase = "<redacted>";
+        }
+
+        @Override
+        public Object toModel() {
+            PrivateKeySource modelSource;
+            if (privateKeyFileOnMaster != null) {
+                modelSource = new FileOnMasterPrivateKeySource(privateKeyFileOnMaster);
+            } else if (privateKey != null) {
+                modelSource = new DirectEntryPrivateKeySource(privateKey);
+            } else if (Boolean.TRUE.equals(userHomePrivateKey)) {
+                modelSource = new UsersPrivateKeySource();
+            } else if (privateKeySource != null) {
+                // fallback for other unknown extensions
+                modelSource = (PrivateKeySource) privateKeySource.toModel();
+            } else {
+                throw new IllegalStateException("A private key source is required");
+            }
+            return new BasicSSHUserPrivateKey(
+                    CredentialsScope.valueOf(getScope()),
+                    getId(),
+                    getUsername(),
+                    modelSource,
+                    passphrase,
+                    getDescription());
+        }
+
+        public String getPrivateKeyFileOnMaster() {
+            return privateKeyFileOnMaster;
+        }
+
+        public void setPrivateKeyFileOnMaster(String privateKeyFileOnMaster) {
+            this.privateKeyFileOnMaster = privateKeyFileOnMaster;
+        }
+
+        public String getPrivateKey() {
+            return privateKey;
+        }
+
+        public void setPrivateKey(String privateKey) {
+            this.privateKey = privateKey;
+        }
+
+        public Boolean getUserHomePrivateKey() {
+            return userHomePrivateKey;
+        }
+
+        public void setUserHomePrivateKey(Boolean userHomePrivateKey) {
+            this.userHomePrivateKey = userHomePrivateKey;
+        }
+
+        public void setPassphrase(String passphrase) {
+            this.passphrase = passphrase;
+        }
+
+        public String getPassphrase() {
+            return passphrase;
+        }
+
+        public APIResource getPrivateKeySource() {
+            return privateKeySource;
+        }
+
+        public void setPrivateKeySource(APIResource privateKeySource) {
+            this.privateKeySource = privateKeySource;
+        }
+    }
+
+
 }
