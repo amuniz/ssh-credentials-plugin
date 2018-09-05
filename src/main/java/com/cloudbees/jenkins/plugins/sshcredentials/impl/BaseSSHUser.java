@@ -38,7 +38,7 @@ public class BaseSSHUser extends BaseStandardCredentials implements SSHUser, Sta
     }
 
     @Override
-    public APIResource getDataAPI() {
+    public Resource getDataAPI() {
         return new Resource(this);
     }
 

@@ -590,7 +590,7 @@ public class BasicSSHUserPrivateKey extends BaseSSHUser implements SSHUserPrivat
     }
 
     @Override
-    public APIResource getDataAPI() {
+    public Resource getDataAPI() {
         return new Resource(this);
     }
 
@@ -604,7 +604,6 @@ public class BasicSSHUserPrivateKey extends BaseSSHUser implements SSHUserPrivat
 
         private APIResource privateKeySource;
 
-        // no getter as it is not going in outputs
         private String passphrase;
 
         public Resource() {}
@@ -622,7 +621,7 @@ public class BasicSSHUserPrivateKey extends BaseSSHUser implements SSHUserPrivat
                 // Other unknown private key source, just use whatever its data API exposes
                 privateKeySource = privateKeySourceModel.getDataAPI();
             }
-            passphrase = "<redacted>";
+            passphrase = model.getPassphrase().getPlainText();
         }
 
         @Override
