@@ -2,6 +2,7 @@ package com.cloudbees.jenkins.plugins.sshcredentials.impl;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUser;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.api.resource.APIResource;
 import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -36,4 +37,28 @@ public class BaseSSHUser extends BaseStandardCredentials implements SSHUser, Sta
         return StringUtils.isEmpty(username) ? System.getProperty("user.name") : username;
     }
 
+    @Override
+    public Resource getDataAPI() {
+        return new Resource(this);
+    }
+
+    public static class Resource extends BaseStandardCredentials.Resource {
+
+        private String username;
+
+        public Resource() {}
+
+        public Resource(BaseSSHUser model) {
+            super(model);
+            username = model.getUsername();
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+    }
 }
